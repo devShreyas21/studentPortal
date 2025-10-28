@@ -31,6 +31,11 @@ export default function TeacherDashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [gradeMap, setGradeMap] = useState({}); // store grades per student
 
+  const getStudentName = (id) => {
+    const student = students.find((s) => Number(s.id) === Number(id));
+    return student ? student.name : "";
+  };
+
   // ===== Lifecycle =====
   useEffect(() => {
     if (!user || user.role_name !== "teacher") {
@@ -38,6 +43,7 @@ export default function TeacherDashboard() {
       return;
     }
     dispatch(fetchProjects());
+    fetchStudents();
   }, [dispatch, user, navigate]);
 
   const handleLogout = () => {
@@ -262,9 +268,16 @@ export default function TeacherDashboard() {
               <div>
                 <h6 className="mb-1">{p.title}</h6>
                 <p className="mb-2 text-muted">{p.description}</p>
-                <small>
+                {/* <small>
                   <b>Students:</b> {p.students?.join(", ") || "No students"}
+                </small> */}
+                <small>
+                  <b>Students:</b>{" "}
+                  {p.students?.length
+                    ? p.students.map((id) => getStudentName(id)).join(", ")
+                    : "No students"}
                 </small>
+
               </div>
               <button
                 className="btn btn-sm btn-outline-success"
@@ -416,7 +429,8 @@ export default function TeacherDashboard() {
                       className="border rounded p-3 mb-3 bg-light"
                     >
                       <p>
-                        <b>Student ID:</b> {s.student_id}
+                        {/* <b>Student ID:</b> {s.student_id} */}
+                        <b>Student:</b> {getStudentName(s.student_id)}
                       </p>
                       <p>
                         <b>Submission:</b> {s.content}
