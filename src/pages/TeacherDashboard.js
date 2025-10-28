@@ -27,11 +27,9 @@ export default function TeacherDashboard() {
   const [taskProjectId, setTaskProjectId] = useState(null);
   const [newTask, setNewTask] = useState({ title: "", description: "" });
 
-  const [gradeData, setGradeData] = useState({
-    task_id: "",
-    student_id: "",
-    grade: "",
-  });
+  const [showGradeModal, setShowGradeModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [gradeMap, setGradeMap] = useState({}); // store grades per student
 
   // ===== Lifecycle =====
   useEffect(() => {
@@ -72,13 +70,14 @@ export default function TeacherDashboard() {
     );
   };
 
-  const handleCreateProject = (e) => {
+  const handleCreateProject = async (e) => {
     e.preventDefault();
     if (selectedStudents.length === 0) {
       alert("Please select at least one student.");
       return;
     }
-    dispatch(createProject({ ...newProject, students: selectedStudents }));
+    await dispatch(createProject({ ...newProject, students: selectedStudents }));
+    dispatch(fetchProjects()); // refresh immediately
     setNewProject({ title: "", description: "" });
     setSelectedStudents([]);
   };
@@ -95,21 +94,41 @@ export default function TeacherDashboard() {
       alert("Project not found!");
       return;
     }
-
-    // Wait until task is added
     await dispatch(addTask({ project_id: taskProjectId, ...newTask }));
-
-    // Refresh projects immediately after adding the task
     dispatch(fetchProjects());
-
     setNewTask({ title: "", description: "" });
     setShowTaskModal(false);
   };
 
-  const handleGrade = (e) => {
-    e.preventDefault();
-    dispatch(gradeSubmission(gradeData));
-    setGradeData({ task_id: "", student_id: "", grade: "" });
+  // ===== Open Grade Modal =====
+  const openGradeModal = (task) => {
+    setSelectedTask(task);
+    const map = {};
+    task.submissions?.forEach((s) => {
+      map[s.student_id] = s.grade || "";
+    });
+    setGradeMap(map);
+    setShowGradeModal(true);
+  };
+
+  // ===== Handle Grade Submission =====
+  const handleGradeSubmit = async (student_id) => {
+    const grade = gradeMap[student_id];
+    if (!grade) {
+      alert("Please enter a grade.");
+      return;
+    }
+
+    await dispatch(
+      gradeSubmission({
+        task_id: selectedTask._id,
+        student_id,
+        grade,
+      })
+    );
+
+    // Refresh immediately
+    dispatch(fetchProjects());
   };
 
   return (
@@ -258,19 +277,44 @@ export default function TeacherDashboard() {
             <hr />
             <ul className="list-group">
               {p.tasks?.length ? (
-                p.tasks.map((t) => (
-                  <li
-                    key={t._id}
-                    className="list-group-item d-flex justify-content-between align-items-center"
-                  >
-                    <span>
-                      <b>{t.title}</b> — {t.description}
-                    </span>
-                    <span className="badge bg-secondary">
-                      {t.submissions?.length || 0} Submissions
-                    </span>
-                  </li>
-                ))
+                p.tasks.map((t) => {
+                  const gradedCount = t.submissions?.filter(
+                    (s) => s.grade
+                  ).length;
+                  const total = t.submissions?.length || 0;
+
+                  return (
+                    <li
+                      key={t._id}
+                      className="list-group-item d-flex justify-content-between align-items-center"
+                    >
+                      <div>
+                        <b>{t.title}</b> — {t.description}
+                        <div className="small text-muted mt-1">
+                          {total > 0 ? (
+                            <>
+                              <span className="badge bg-secondary me-2">
+                                {gradedCount}/{total} graded
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-muted">
+                              No submissions yet
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {total > 0 && (
+                        <button
+                          className="btn btn-sm btn-outline-warning"
+                          onClick={() => openGradeModal(t)}
+                        >
+                          Grade Submissions
+                        </button>
+                      )}
+                    </li>
+                  );
+                })
               ) : (
                 <li className="list-group-item text-muted">
                   No tasks yet for this project.
@@ -345,55 +389,76 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* ===== Grade Section ===== */}
-      <div className="card mt-4 p-3 shadow-sm mb-5">
-        <h5>Grade Student Submission</h5>
-        <form onSubmit={handleGrade}>
-          <div className="row g-2">
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Task ID"
-                value={gradeData.task_id}
-                onChange={(e) =>
-                  setGradeData({ ...gradeData, task_id: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Student ID"
-                value={gradeData.student_id}
-                onChange={(e) =>
-                  setGradeData({ ...gradeData, student_id: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Grade (A/B/C...)"
-                value={gradeData.grade}
-                onChange={(e) =>
-                  setGradeData({ ...gradeData, grade: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-3">
-              <button type="submit" className="btn btn-warning w-100">
-                Grade
-              </button>
+      {/* ===== Grade Modal ===== */}
+      {showGradeModal && selectedTask && (
+        <div
+          className="modal show fade d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Grade Submissions for: {selectedTask.title}
+                </h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowGradeModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {selectedTask.submissions?.length > 0 ? (
+                  selectedTask.submissions.map((s) => (
+                    <div
+                      key={s._id}
+                      className="border rounded p-3 mb-3 bg-light"
+                    >
+                      <p>
+                        <b>Student ID:</b> {s.student_id}
+                      </p>
+                      <p>
+                        <b>Submission:</b> {s.content}
+                      </p>
+                      <div className="d-flex align-items-center">
+                        <input
+                          type="text"
+                          className="form-control me-2"
+                          placeholder="Enter grade"
+                          value={gradeMap[s.student_id] || ""}
+                          onChange={(e) =>
+                            setGradeMap({
+                              ...gradeMap,
+                              [s.student_id]: e.target.value,
+                            })
+                          }
+                        />
+                        <button
+                          className="btn btn-success"
+                          onClick={() => handleGradeSubmit(s.student_id)}
+                        >
+                          Submit Grade
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p>No submissions yet.</p>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowGradeModal(false)}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
