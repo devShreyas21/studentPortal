@@ -86,16 +86,16 @@ export default function AdminDashboard() {
             <table className="table table-bordered">
               <thead className="table-light">
                 <tr>
-                  <th>User ID</th>
+                  <th>User</th>
                   <th>Action</th>
                   <th>Timestamp</th>
                 </tr>
               </thead>
-              <tbody>
+              {/* <tbody>
                 {logs?.length > 0 ? (
                   logs.map((log) => (
                     <tr key={log._id}>
-                      <td>{log.user_id}</td>
+                      <td>{log.user}</td>
                       <td>{log.action}</td>
                       <td>{new Date(log.timestamp).toLocaleString()}</td>
                     </tr>
@@ -107,7 +107,50 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 )}
+              </tbody> */}
+
+              <tbody>
+                {logs?.length > 0 ? (
+                  logs.map((log, index) => {
+                    // Extract userName and userRole from the "user" field (e.g. "shruti (student)")
+                    const match = log.user.match(/^(.*?) \((.*?)\)$/);
+                    const userName = match ? match[1] : log.user;
+                    const userRole = match ? match[2] : "";
+
+                    // Capitalize role for display
+                    const displayRole =
+                      userRole.charAt(0).toUpperCase() + userRole.slice(1).toLowerCase();
+
+                    // Badge color based on role
+                    const badgeClass =
+                      displayRole === "Admin"
+                        ? "bg-danger"
+                        : displayRole === "Teacher"
+                          ? "bg-primary"
+                          : displayRole === "Student"
+                            ? "bg-success"
+                            : "bg-secondary";
+
+                    return (
+                      <tr key={index}>
+                        <td>
+                          {userName}{" "}
+                          <span className={`badge ${badgeClass}`}>{displayRole}</span>
+                        </td>
+                        <td>{log.action}</td>
+                        <td>{new Date(log.timestamp).toLocaleString()}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="3" className="text-center">
+                      No activity logs
+                    </td>
+                  </tr>
+                )}
               </tbody>
+
             </table>
           </div>
         </div>
