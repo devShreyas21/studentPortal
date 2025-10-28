@@ -16,20 +16,16 @@ export default function TeacherDashboard() {
   const { projects, isLoading, error } = useSelector((state) => state.teacher);
   const { user, token } = useSelector((state) => state.auth);
 
-  const [students, setStudents] = useState([]); // ✅ list of all students
+  // ===== State variables =====
+  const [students, setStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [showStudentModal, setShowStudentModal] = useState(false);
 
-  const [newProject, setNewProject] = useState({
-    title: "",
-    description: "",
-  });
+  const [newProject, setNewProject] = useState({ title: "", description: "" });
 
-  const [newTask, setNewTask] = useState({
-    project_id: "",
-    title: "",
-    description: "",
-  });
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [taskProjectId, setTaskProjectId] = useState(null);
+  const [newTask, setNewTask] = useState({ title: "", description: "" });
 
   const [gradeData, setGradeData] = useState({
     task_id: "",
@@ -37,6 +33,7 @@ export default function TeacherDashboard() {
     grade: "",
   });
 
+  // ===== Lifecycle =====
   useEffect(() => {
     if (!user || user.role_name !== "teacher") {
       navigate("/login");
@@ -50,14 +47,12 @@ export default function TeacherDashboard() {
     navigate("/login");
   };
 
-  // ✅ Fetch all students from admin API
+  // ===== Fetch all students (for assigning project) =====
   const fetchStudents = async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_BASE_URL}admin/users`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       const allUsers = res.data;
       const studentUsers = allUsers.filter(
@@ -73,9 +68,7 @@ export default function TeacherDashboard() {
 
   const toggleStudentSelection = (id) => {
     setSelectedStudents((prev) =>
-      prev.includes(id)
-        ? prev.filter((s) => s !== id)
-        : [...prev, id]
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
@@ -85,16 +78,32 @@ export default function TeacherDashboard() {
       alert("Please select at least one student.");
       return;
     }
-
     dispatch(createProject({ ...newProject, students: selectedStudents }));
     setNewProject({ title: "", description: "" });
     setSelectedStudents([]);
   };
 
-  const handleAddTask = (e) => {
+  // ===== Handle Add Task =====
+  const openTaskModal = (projectId) => {
+    setTaskProjectId(projectId);
+    setShowTaskModal(true);
+  };
+
+  const handleAddTask = async (e) => {
     e.preventDefault();
-    dispatch(addTask(newTask));
-    setNewTask({ project_id: "", title: "", description: "" });
+    if (!taskProjectId) {
+      alert("Project not found!");
+      return;
+    }
+
+    // Wait until task is added
+    await dispatch(addTask({ project_id: taskProjectId, ...newTask }));
+
+    // Refresh projects immediately after adding the task
+    dispatch(fetchProjects());
+
+    setNewTask({ title: "", description: "" });
+    setShowTaskModal(false);
   };
 
   const handleGrade = (e) => {
@@ -105,7 +114,7 @@ export default function TeacherDashboard() {
 
   return (
     <div className="container mt-5">
-      {/* Header */}
+      {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>👨‍🏫 Teacher Dashboard</h3>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
@@ -116,7 +125,7 @@ export default function TeacherDashboard() {
       {isLoading && <div className="alert alert-info">Loading...</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {/* ✅ Create Project */}
+      {/* ===== Create Project ===== */}
       <div className="card mb-4 p-3 shadow-sm">
         <h5>Create New Project</h5>
         <form onSubmit={handleCreateProject}>
@@ -158,8 +167,7 @@ export default function TeacherDashboard() {
 
           {selectedStudents.length > 0 && (
             <div className="mt-3">
-              <strong>Selected Students:</strong>{" "}
-              {selectedStudents.join(", ")}
+              <strong>Selected Students:</strong> {selectedStudents.join(", ")}
             </div>
           )}
 
@@ -171,7 +179,7 @@ export default function TeacherDashboard() {
         </form>
       </div>
 
-      {/* ✅ Student Selection Modal */}
+      {/* ===== Student Selection Modal ===== */}
       {showStudentModal && (
         <div
           className="modal show fade d-block"
@@ -226,88 +234,118 @@ export default function TeacherDashboard() {
         </div>
       )}
 
-      {/* Projects Table */}
+      {/* ===== Projects & Tasks List ===== */}
       <h5>Your Projects</h5>
-      <table className="table table-striped mt-3">
-        <thead className="table-dark">
-          <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Students</th>
-            <th>Tasks</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects?.length > 0 ? (
-            projects.map((p) => (
-              <tr key={p._id}>
-                <td>{p.title}</td>
-                <td>{p.description}</td>
-                <td>{p.students?.join(", ")}</td>
-                <td>{p.tasks?.length || 0}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="4" className="text-center">
-                No projects found
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* Add Task */}
-      <div className="card mt-4 p-3 shadow-sm">
-        <h5>Add Task</h5>
-        <form onSubmit={handleAddTask}>
-          <div className="row g-2">
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Project ID"
-                value={newTask.project_id}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, project_id: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Task Title"
-                value={newTask.title}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, title: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-4">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Task Description"
-                value={newTask.description}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, description: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="col-md-2">
-              <button type="submit" className="btn btn-success w-100">
-                Add Task
+      {projects?.length > 0 ? (
+        projects.map((p) => (
+          <div key={p._id} className="card mb-4 p-3 shadow-sm">
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="mb-1">{p.title}</h6>
+                <p className="mb-2 text-muted">{p.description}</p>
+                <small>
+                  <b>Students:</b> {p.students?.join(", ") || "No students"}
+                </small>
+              </div>
+              <button
+                className="btn btn-sm btn-outline-success"
+                onClick={() => openTaskModal(p._id)}
+              >
+                + Add Task
               </button>
             </div>
-          </div>
-        </form>
-      </div>
 
-      {/* Grade Submission */}
+            <hr />
+            <ul className="list-group">
+              {p.tasks?.length ? (
+                p.tasks.map((t) => (
+                  <li
+                    key={t._id}
+                    className="list-group-item d-flex justify-content-between align-items-center"
+                  >
+                    <span>
+                      <b>{t.title}</b> — {t.description}
+                    </span>
+                    <span className="badge bg-secondary">
+                      {t.submissions?.length || 0} Submissions
+                    </span>
+                  </li>
+                ))
+              ) : (
+                <li className="list-group-item text-muted">
+                  No tasks yet for this project.
+                </li>
+              )}
+            </ul>
+          </div>
+        ))
+      ) : (
+        <div className="alert alert-secondary">No projects found</div>
+      )}
+
+      {/* ===== Add Task Modal ===== */}
+      {showTaskModal && (
+        <div
+          className="modal show fade d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Add Task</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowTaskModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleAddTask}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Task Title</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={newTask.title}
+                      onChange={(e) =>
+                        setNewTask({ ...newTask, title: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Task Description</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={newTask.description}
+                      onChange={(e) =>
+                        setNewTask({ ...newTask, description: e.target.value })
+                      }
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowTaskModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-success">
+                    Add Task
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Grade Section ===== */}
       <div className="card mt-4 p-3 shadow-sm mb-5">
         <h5>Grade Student Submission</h5>
         <form onSubmit={handleGrade}>
