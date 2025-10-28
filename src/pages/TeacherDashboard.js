@@ -1,18 +1,41 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProjects, createProject, addTask, gradeSubmission } from "../features/teacher/teacherSlice";
+import {
+  fetchProjects,
+  createProject,
+  addTask,
+  gradeSubmission,
+} from "../features/teacher/teacherSlice";
 import { logout } from "../features/auth/authSlice";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function TeacherDashboard() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { projects, isLoading, error } = useSelector((state) => state.teacher);
-  const { user } = useSelector((state) => state.auth);
+  const { user, token } = useSelector((state) => state.auth);
 
-  const [newProject, setNewProject] = useState({ title: "", description: "", students: "" });
-  const [newTask, setNewTask] = useState({ project_id: "", title: "", description: "" });
-  const [gradeData, setGradeData] = useState({ task_id: "", student_id: "", grade: "" });
+  const [students, setStudents] = useState([]); // ✅ list of all students
+  const [selectedStudents, setSelectedStudents] = useState([]);
+  const [showStudentModal, setShowStudentModal] = useState(false);
+
+  const [newProject, setNewProject] = useState({
+    title: "",
+    description: "",
+  });
+
+  const [newTask, setNewTask] = useState({
+    project_id: "",
+    title: "",
+    description: "",
+  });
+
+  const [gradeData, setGradeData] = useState({
+    task_id: "",
+    student_id: "",
+    grade: "",
+  });
 
   useEffect(() => {
     if (!user || user.role_name !== "teacher") {
@@ -27,15 +50,45 @@ export default function TeacherDashboard() {
     navigate("/login");
   };
 
+  // ✅ Fetch all students from admin API
+  const fetchStudents = async () => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_BASE_URL}admin/users`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const allUsers = res.data;
+      const studentUsers = allUsers.filter(
+        (u) => u.role_name.toLowerCase() === "student"
+      );
+      setStudents(studentUsers);
+      setShowStudentModal(true);
+    } catch (err) {
+      console.error("Error fetching students:", err);
+      alert("Failed to load students");
+    }
+  };
+
+  const toggleStudentSelection = (id) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id)
+        ? prev.filter((s) => s !== id)
+        : [...prev, id]
+    );
+  };
+
   const handleCreateProject = (e) => {
     e.preventDefault();
-    const studentsArray = newProject.students
-      .split(",")
-      .map((id) => Number(id.trim()))
-      .filter(Boolean);
+    if (selectedStudents.length === 0) {
+      alert("Please select at least one student.");
+      return;
+    }
 
-    dispatch(createProject({ ...newProject, students: studentsArray }));
-    setNewProject({ title: "", description: "", students: "" });
+    dispatch(createProject({ ...newProject, students: selectedStudents }));
+    setNewProject({ title: "", description: "" });
+    setSelectedStudents([]);
   };
 
   const handleAddTask = (e) => {
@@ -52,8 +105,9 @@ export default function TeacherDashboard() {
 
   return (
     <div className="container mt-5">
+      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h3>🎓 Teacher Dashboard</h3>
+        <h3>👨‍🏫 Teacher Dashboard</h3>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
           Logout
         </button>
@@ -62,48 +116,115 @@ export default function TeacherDashboard() {
       {isLoading && <div className="alert alert-info">Loading...</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
-      {/* Create Project */}
+      {/* ✅ Create Project */}
       <div className="card mb-4 p-3 shadow-sm">
         <h5>Create New Project</h5>
         <form onSubmit={handleCreateProject}>
           <div className="row g-2">
-            <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Title"
-                value={newProject.title}
-                onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
-                required
-              />
-            </div>
             <div className="col-md-4">
               <input
                 type="text"
                 className="form-control"
-                placeholder="Description"
+                placeholder="Project Title"
+                value={newProject.title}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, title: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="col-md-5">
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Project Description"
                 value={newProject.description}
-                onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
+                onChange={(e) =>
+                  setNewProject({ ...newProject, description: e.target.value })
+                }
                 required
               />
             </div>
             <div className="col-md-3">
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Student IDs (comma separated)"
-                value={newProject.students}
-                onChange={(e) => setNewProject({ ...newProject, students: e.target.value })}
-              />
-            </div>
-            <div className="col-md-2">
-              <button type="submit" className="btn btn-primary w-100">
-                Create
+              <button
+                type="button"
+                className="btn btn-outline-primary w-100"
+                onClick={fetchStudents}
+              >
+                Add Students
               </button>
             </div>
           </div>
+
+          {selectedStudents.length > 0 && (
+            <div className="mt-3">
+              <strong>Selected Students:</strong>{" "}
+              {selectedStudents.join(", ")}
+            </div>
+          )}
+
+          <div className="mt-3">
+            <button type="submit" className="btn btn-primary">
+              Create Project
+            </button>
+          </div>
         </form>
       </div>
+
+      {/* ✅ Student Selection Modal */}
+      {showStudentModal && (
+        <div
+          className="modal show fade d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Select Students</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowStudentModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="list-group">
+                  {students.map((s) => (
+                    <label
+                      key={s.id}
+                      className="list-group-item d-flex justify-content-between align-items-center"
+                    >
+                      <span>
+                        <b>{s.name}</b> — {s.email}
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={selectedStudents.includes(s.id)}
+                        onChange={() => toggleStudentSelection(s.id)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowStudentModal(false)}
+                >
+                  Close
+                </button>
+                <button
+                  className="btn btn-success"
+                  onClick={() => setShowStudentModal(false)}
+                >
+                  Confirm Selection
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Projects Table */}
       <h5>Your Projects</h5>
@@ -147,7 +268,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Project ID"
                 value={newTask.project_id}
-                onChange={(e) => setNewTask({ ...newTask, project_id: e.target.value })}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, project_id: e.target.value })
+                }
                 required
               />
             </div>
@@ -157,7 +280,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Task Title"
                 value={newTask.title}
-                onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, title: e.target.value })
+                }
                 required
               />
             </div>
@@ -167,7 +292,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Task Description"
                 value={newTask.description}
-                onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, description: e.target.value })
+                }
                 required
               />
             </div>
@@ -191,7 +318,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Task ID"
                 value={gradeData.task_id}
-                onChange={(e) => setGradeData({ ...gradeData, task_id: e.target.value })}
+                onChange={(e) =>
+                  setGradeData({ ...gradeData, task_id: e.target.value })
+                }
                 required
               />
             </div>
@@ -201,7 +330,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Student ID"
                 value={gradeData.student_id}
-                onChange={(e) => setGradeData({ ...gradeData, student_id: e.target.value })}
+                onChange={(e) =>
+                  setGradeData({ ...gradeData, student_id: e.target.value })
+                }
                 required
               />
             </div>
@@ -211,7 +342,9 @@ export default function TeacherDashboard() {
                 className="form-control"
                 placeholder="Grade (A/B/C...)"
                 value={gradeData.grade}
-                onChange={(e) => setGradeData({ ...gradeData, grade: e.target.value })}
+                onChange={(e) =>
+                  setGradeData({ ...gradeData, grade: e.target.value })
+                }
                 required
               />
             </div>
