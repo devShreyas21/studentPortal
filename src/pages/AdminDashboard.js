@@ -5,7 +5,13 @@ import { logout } from "../features/auth/authSlice";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+import { useContext } from "react";
+import { ThemeContext } from "../context/ThemeContext";
+
 export default function AdminDashboard() {
+
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { users, logs, isLoading, error } = useSelector((state) => state.admin);
@@ -91,6 +97,12 @@ export default function AdminDashboard() {
       {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>👑 Admin Dashboard</h3>
+        <button
+          className="btn btn-outline-secondary me-2"
+          onClick={toggleTheme}
+        >
+          {theme === "light" ? "🌙 Dark" : "☀️ Light"}
+        </button>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
           Logout
         </button>
@@ -179,10 +191,10 @@ export default function AdminDashboard() {
                       displayRole === "Admin"
                         ? "bg-danger"
                         : displayRole === "Teacher"
-                        ? "bg-primary"
-                        : displayRole === "Student"
-                        ? "bg-success"
-                        : "bg-secondary";
+                          ? "bg-primary"
+                          : displayRole === "Student"
+                            ? "bg-success"
+                            : "bg-secondary";
                     return (
                       <tr key={index}>
                         <td>

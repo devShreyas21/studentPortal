@@ -8,8 +8,13 @@ import {
 import { logout } from "../features/auth/authSlice";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useContext } from "react";
+import { ThemeContext } from "../context/ThemeContext";
 
 export default function StudentDashboard() {
+
+  const { theme, toggleTheme } = useContext(ThemeContext)
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { projects, isLoading, error, message } = useSelector(
@@ -116,6 +121,12 @@ export default function StudentDashboard() {
       {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>🎓 Student Dashboard</h3>
+        <button
+          className="btn btn-outline-secondary me-2"
+          onClick={toggleTheme}
+        >
+          {theme === "light" ? "🌙 Dark" : "☀️ Light"}
+        </button>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
           Logout
         </button>
