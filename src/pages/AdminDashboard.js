@@ -31,8 +31,16 @@ export default function AdminDashboard() {
     setShowLogs(!showLogs);
   };
 
+  // ✅ Utility to find user name and role from users array
+  const getUserInfo = (userId) => {
+    const found = users?.find((u) => u.id === userId);
+    if (!found) return { name: `User ID: ${userId}`, role: "Unknown" };
+    return { name: found.name, role: found.role_name };
+  };
+
   return (
     <div className="container mt-5">
+      {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>👑 Admin Dashboard</h3>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
@@ -40,9 +48,11 @@ export default function AdminDashboard() {
         </button>
       </div>
 
+      {/* ===== Alerts ===== */}
       {isLoading && <div className="alert alert-info">Loading...</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
+      {/* ===== Users Table ===== */}
       <h5>All Users</h5>
       <table className="table table-striped mt-3">
         <thead className="table-dark">
@@ -73,12 +83,14 @@ export default function AdminDashboard() {
         </tbody>
       </table>
 
+      {/* ===== Activity Logs Button ===== */}
       <div className="mt-4">
         <button className="btn btn-secondary" onClick={handleViewLogs}>
           {showLogs ? "Hide Activity Logs" : "View Activity Logs"}
         </button>
       </div>
 
+      {/* ===== Activity Logs Table ===== */}
       {showLogs && (
         <div className="mt-4">
           <h5>System Activity Logs</h5>
@@ -91,37 +103,15 @@ export default function AdminDashboard() {
                   <th>Timestamp</th>
                 </tr>
               </thead>
-              {/* <tbody>
-                {logs?.length > 0 ? (
-                  logs.map((log) => (
-                    <tr key={log._id}>
-                      <td>{log.user}</td>
-                      <td>{log.action}</td>
-                      <td>{new Date(log.timestamp).toLocaleString()}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="text-center">
-                      No activity logs
-                    </td>
-                  </tr>
-                )}
-              </tbody> */}
-
               <tbody>
                 {logs?.length > 0 ? (
                   logs.map((log, index) => {
-                    // Extract userName and userRole from the "user" field (e.g. "shruti (student)")
-                    const match = log.user.match(/^(.*?) \((.*?)\)$/);
-                    const userName = match ? match[1] : log.user;
-                    const userRole = match ? match[2] : "";
+                    const { name, role } = getUserInfo(log.user_id);
 
-                    // Capitalize role for display
                     const displayRole =
-                      userRole.charAt(0).toUpperCase() + userRole.slice(1).toLowerCase();
+                      role.charAt(0).toUpperCase() +
+                      role.slice(1).toLowerCase();
 
-                    // Badge color based on role
                     const badgeClass =
                       displayRole === "Admin"
                         ? "bg-danger"
@@ -134,11 +124,18 @@ export default function AdminDashboard() {
                     return (
                       <tr key={index}>
                         <td>
-                          {userName}{" "}
-                          <span className={`badge ${badgeClass}`}>{displayRole}</span>
+                          {name}{" "}
+                          <span className={`badge ${badgeClass}`}>
+                            {displayRole}
+                          </span>
                         </td>
                         <td>{log.action}</td>
-                        <td>{new Date(log.timestamp).toLocaleString()}</td>
+                        <td>
+                          {new Date(log.timestamp).toLocaleString("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </td>
                       </tr>
                     );
                   })
@@ -150,7 +147,6 @@ export default function AdminDashboard() {
                   </tr>
                 )}
               </tbody>
-
             </table>
           </div>
         </div>
