@@ -7,6 +7,7 @@ import {
 } from "../features/student/studentSlice";
 import { logout } from "../features/auth/authSlice";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function StudentDashboard() {
   const dispatch = useDispatch();
@@ -14,13 +15,14 @@ export default function StudentDashboard() {
   const { projects, isLoading, error, message } = useSelector(
     (state) => state.student
   );
-  const { user } = useSelector((state) => state.auth);
+  const { user, token } = useSelector((state) => state.auth);
 
   const [showModal, setShowModal] = useState(false);
   const [currentTask, setCurrentTask] = useState(null);
   const [content, setContent] = useState("");
+  const [file, setFile] = useState(null);
 
-  // ✅ Load student projects on mount
+  // ✅ Load projects when component mounts
   useEffect(() => {
     if (!user || user.role_name !== "student") {
       navigate("/login");
@@ -37,6 +39,7 @@ export default function StudentDashboard() {
   const openModal = (task) => {
     setCurrentTask(task);
     setContent("");
+    setFile(null);
     setShowModal(true);
   };
 
@@ -44,22 +47,59 @@ export default function StudentDashboard() {
     setShowModal(false);
     setCurrentTask(null);
     setContent("");
+    setFile(null);
   };
 
-  const handleSubmit = (e) => {
+  // ✅ Handle task submission
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!currentTask) return;
-    dispatch(submitTask({ task_id: currentTask._id, content }));
+
+    let uploadedFileId = null;
+
+    // Step 1️⃣ Upload file first (if any)
+    if (file) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const uploadRes = await axios.post(
+          `${process.env.REACT_APP_API_BASE_URL}upload`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        uploadedFileId = uploadRes.data.fileId; // ✅ use fileId from GridFS
+      } catch (err) {
+        console.error("File upload failed:", err);
+        alert("File upload failed! Please try again.");
+        return;
+      }
+    }
+
+    // Step 2️⃣ Submit task content + uploaded fileId
+    await dispatch(
+      submitTask({
+        task_id: currentTask._id,
+        content,
+        fileId: uploadedFileId,
+      })
+    );
+
     closeModal();
     setTimeout(() => dispatch(clearMessage()), 2500);
-    dispatch(fetchStudentProjects()); // refresh list
+    dispatch(fetchStudentProjects()); // refresh projects
   };
 
   if (!user) return <div className="text-center mt-5">Loading...</div>;
 
   return (
     <div className="container mt-5">
-      {/* Header */}
+      {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>🎓 Student Dashboard</h3>
         <button className="btn btn-outline-danger" onClick={handleLogout}>
@@ -67,12 +107,12 @@ export default function StudentDashboard() {
         </button>
       </div>
 
-      {/* Alerts */}
+      {/* ===== Alerts ===== */}
       {isLoading && <div className="alert alert-info">Loading...</div>}
       {error && <div className="alert alert-danger">{error}</div>}
       {message && <div className="alert alert-success">{message}</div>}
 
-      {/* Projects */}
+      {/* ===== Projects ===== */}
       <h5>Your Assigned Projects</h5>
       <table className="table table-striped mt-3">
         <thead className="table-dark">
@@ -108,6 +148,16 @@ export default function StudentDashboard() {
                                     Grade: {submission.grade}
                                   </span>
                                 )}
+                                {submission.fileId && (
+                                  <a
+                                    href={`${process.env.REACT_APP_API_BASE_URL}upload/${submission.fileId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ms-2 text-decoration-none"
+                                  >
+                                    📎 View File
+                                  </a>
+                                )}
                               </>
                             ) : (
                               <button
@@ -137,7 +187,7 @@ export default function StudentDashboard() {
         </tbody>
       </table>
 
-      {/* ✅ Submit Task Modal */}
+      {/* ===== Submit Task Modal ===== */}
       {showModal && currentTask && (
         <div
           className="modal show fade d-block"
@@ -170,6 +220,17 @@ export default function StudentDashboard() {
                       required
                     ></textarea>
                   </div>
+
+                  {/* 🆕 File upload input */}
+                  <div className="mb-3">
+                    <label className="form-label">Attach File (optional)</label>
+                    <input
+                      type="file"
+                      className="form-control"
+                      onChange={(e) => setFile(e.target.files[0])}
+                    />
+                  </div>
+
                   <div className="d-flex justify-content-end">
                     <button
                       type="button"
