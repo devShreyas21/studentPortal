@@ -31,6 +31,16 @@ export default function TeacherDashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [gradeMap, setGradeMap] = useState({}); // store grades per student
 
+  // ===== Edit States =====
+  const [showEditProjectModal, setShowEditProjectModal] = useState(false);
+  const [editProject, setEditProject] = useState({ _id: "", title: "", description: "" });
+
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false);
+  const [editTask, setEditTask] = useState({ _id: "", title: "", description: "" });
+
+  const [toastMessage, setToastMessage] = useState("");
+
+
   const getStudentName = (id) => {
     const student = students.find((s) => Number(s.id) === Number(id));
     return student ? student.name : "";
@@ -106,6 +116,132 @@ export default function TeacherDashboard() {
     setShowTaskModal(false);
   };
 
+  // // ===== Handle Edit Project =====
+  // const handleEditProject = async (project) => {
+  //   const title = prompt("Edit Project Title:", project.title);
+  //   const description = prompt("Edit Project Description:", project.description);
+  //   if (!title || !description) return;
+
+  //   try {
+  //     await axios.put(
+  //       `${process.env.REACT_APP_API_BASE_URL}teacher/project/${project._id}`,
+  //       { title, description },
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+  //     alert("Project updated successfully");
+  //     dispatch(fetchProjects());
+  //   } catch (err) {
+  //     console.error("Error editing project:", err);
+  //     alert("Failed to update project");
+  //   }
+  // };
+
+  // ===== Handle Delete Project =====
+  const handleDeleteProject = async (projectId) => {
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+
+    try {
+      await axios.delete(
+        `${process.env.REACT_APP_API_BASE_URL}teacher/project/${projectId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("Project deleted successfully");
+      dispatch(fetchProjects());
+    } catch (err) {
+      console.error("Error deleting project:", err);
+      alert("Failed to delete project");
+    }
+  };
+
+  // // ===== Handle Edit Task =====
+  // const handleEditTask = async (task) => {
+  //   const title = prompt("Edit Task Title:", task.title);
+  //   const description = prompt("Edit Task Description:", task.description);
+  //   if (!title || !description) return;
+
+  //   try {
+  //     await axios.put(
+  //       `${process.env.REACT_APP_API_BASE_URL}teacher/task/${task._id}`,
+  //       { title, description },
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+  //     alert("Task updated successfully");
+  //     dispatch(fetchProjects());
+  //   } catch (err) {
+  //     console.error("Error editing task:", err);
+  //     alert("Failed to update task");
+  //   }
+  // };
+
+  // ===== Handle Delete Task =====
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) return;
+
+    try {
+      await axios.delete(
+        `${process.env.REACT_APP_API_BASE_URL}teacher/task/${taskId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert("Task deleted successfully");
+      dispatch(fetchProjects());
+    } catch (err) {
+      console.error("Error deleting task:", err);
+      alert("Failed to delete task");
+    }
+  };
+
+  // ===== Handle Edit Project =====
+  const handleEditProject = (project) => {
+    setEditProject(project);
+    setShowEditProjectModal(true);
+  };
+
+  // ===== Submit Edit Project =====
+  const submitEditProject = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_BASE_URL}teacher/project/${editProject._id}`,
+        { title: editProject.title, description: editProject.description },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToastMessage("✅ Project updated successfully!");
+      setShowEditProjectModal(false);
+      dispatch(fetchProjects());
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err) {
+      console.error("Error editing project:", err);
+      setToastMessage("❌ Failed to update project.");
+    }
+  };
+
+  // ===== Handle Edit Task =====
+  const handleEditTask = (task) => {
+    setEditTask(task);
+    setShowEditTaskModal(true);
+  };
+
+  // ===== Submit Edit Task =====
+  const submitEditTask = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_BASE_URL}teacher/task/${editTask._id}`,
+        { title: editTask.title, description: editTask.description },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setToastMessage("✅ Task updated successfully!");
+      setShowEditTaskModal(false);
+      dispatch(fetchProjects());
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err) {
+      console.error("Error editing task:", err);
+      setToastMessage("❌ Failed to update task.");
+    }
+  };
+
+
+
   // ===== Open Grade Modal =====
   const openGradeModal = (task) => {
     setSelectedTask(task);
@@ -136,6 +272,17 @@ export default function TeacherDashboard() {
     // Refresh immediately
     dispatch(fetchProjects());
   };
+
+  {
+    toastMessage && (
+      <div
+        className="alert alert-success text-center position-fixed top-0 start-50 translate-middle-x mt-3 shadow"
+        style={{ zIndex: 1050, width: "300px" }}
+      >
+        {toastMessage}
+      </div>
+    )
+  }
 
   return (
     <div className="container mt-5">
@@ -264,13 +411,10 @@ export default function TeacherDashboard() {
       {projects?.length > 0 ? (
         projects.map((p) => (
           <div key={p._id} className="card mb-4 p-3 shadow-sm">
-            <div className="d-flex justify-content-between align-items-center">
+            {/* <div className="d-flex justify-content-between align-items-center">
               <div>
                 <h6 className="mb-1">{p.title}</h6>
                 <p className="mb-2 text-muted">{p.description}</p>
-                {/* <small>
-                  <b>Students:</b> {p.students?.join(", ") || "No students"}
-                </small> */}
                 <small>
                   <b>Students:</b>{" "}
                   {p.students?.length
@@ -285,7 +429,54 @@ export default function TeacherDashboard() {
               >
                 + Add Task
               </button>
+            </div> */}
+
+            <div className="d-flex justify-content-between align-items-center">
+              <div>
+                <h6 className="mb-1">
+                  {p.title}{" "}
+                  {p.isEdited && (
+                    <span className="badge bg-warning text-dark ms-2">Edited</span>
+                  )}
+                  {p.isDeleted && (
+                    <span className="badge bg-danger text-light ms-2">Deleted</span>
+                  )}
+                </h6>
+                <p className="mb-2 text-muted">{p.description}</p>
+                <small>
+                  <b>Students:</b>{" "}
+                  {p.students?.length
+                    ? p.students.map((id) => getStudentName(id)).join(", ")
+                    : "No students"}
+                </small>
+              </div>
+
+              <div className="d-flex gap-2">
+                {!p.isDeleted && (
+                  <button
+                    className="btn btn-sm btn-outline-success"
+                    onClick={() => openTaskModal(p._id)}
+                  >
+                    + Add Task
+                  </button>
+                )}
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => handleEditProject(p)}
+                  disabled={p.isDeleted}
+                >
+                  ✏️ Edit
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-danger"
+                  onClick={() => handleDeleteProject(p._id)}
+                  disabled={p.isDeleted}
+                >
+                  🗑 Delete
+                </button>
+              </div>
             </div>
+
 
             <hr />
             <ul className="list-group">
@@ -302,7 +493,17 @@ export default function TeacherDashboard() {
                       className="list-group-item d-flex justify-content-between align-items-center"
                     >
                       <div>
-                        <b>{t.title}</b> — {t.description}
+                        {/* <b>{t.title}</b> — {t.description} */}
+                        <b>
+                          {t.title}{" "}
+                          {t.isEdited && (
+                            <span className="badge bg-warning text-dark ms-2">Edited</span>
+                          )}
+                          {t.isDeleted && (
+                            <span className="badge bg-danger text-light ms-2">Deleted</span>
+                          )}
+                        </b>{" "}
+                        — {t.description}
                         <div className="small text-muted mt-1">
                           {total > 0 ? (
                             <>
@@ -318,12 +519,32 @@ export default function TeacherDashboard() {
                         </div>
                       </div>
                       {total > 0 && (
-                        <button
-                          className="btn btn-sm btn-outline-warning"
-                          onClick={() => openGradeModal(t)}
-                        >
-                          Grade Submissions
-                        </button>
+
+                        <div className="d-flex gap-2">
+                          {total > 0 && !t.isDeleted && (
+                            <button
+                              className="btn btn-sm btn-outline-warning"
+                              onClick={() => openGradeModal(t)}
+                            >
+                              Grade Submissions
+                            </button>
+                          )}
+                          <button
+                            className="btn btn-sm btn-outline-primary"
+                            onClick={() => handleEditTask(t)}
+                            disabled={t.isDeleted}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleDeleteTask(t._id)}
+                            disabled={t.isDeleted}
+                          >
+                            🗑 Delete
+                          </button>
+                        </div>
+
                       )}
                     </li>
                   );
@@ -489,6 +710,127 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
+      {/* ===== Edit Project Modal ===== */}
+      {showEditProjectModal && (
+        <div
+          className="modal show fade d-block"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Edit Project</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowEditProjectModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={submitEditProject}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Project Title</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editProject.title}
+                      onChange={(e) =>
+                        setEditProject({ ...editProject, title: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Project Description</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={editProject.description}
+                      onChange={(e) =>
+                        setEditProject({ ...editProject, description: e.target.value })
+                      }
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditProjectModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-success">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Edit Task Modal ===== */}
+      {showEditTaskModal && (
+        <div
+          className="modal show fade d-block"
+          style={{ background: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Edit Task</h5>
+                <button
+                  className="btn-close"
+                  onClick={() => setShowEditTaskModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={submitEditTask}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Task Title</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editTask.title}
+                      onChange={(e) =>
+                        setEditTask({ ...editTask, title: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Task Description</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={editTask.description}
+                      onChange={(e) =>
+                        setEditTask({ ...editTask, description: e.target.value })
+                      }
+                      required
+                    ></textarea>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditTaskModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-success">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
