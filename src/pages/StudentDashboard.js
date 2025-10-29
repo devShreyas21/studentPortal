@@ -21,8 +21,9 @@ export default function StudentDashboard() {
   const [currentTask, setCurrentTask] = useState(null);
   const [content, setContent] = useState("");
   const [file, setFile] = useState(null);
+  const [toastMessage, setToastMessage] = useState("");
 
-  // ✅ Load projects when component mounts
+  // ✅ Load student projects
   useEffect(() => {
     if (!user || user.role_name !== "student") {
       navigate("/login");
@@ -57,7 +58,7 @@ export default function StudentDashboard() {
 
     let uploadedFileId = null;
 
-    // Step 1️⃣ Upload file first (if any)
+    // 1️⃣ Upload file first (if any)
     if (file) {
       const formData = new FormData();
       formData.append("file", file);
@@ -73,15 +74,16 @@ export default function StudentDashboard() {
             },
           }
         );
-        uploadedFileId = uploadRes.data.fileId; // ✅ use fileId from GridFS
+        uploadedFileId = uploadRes.data.fileId;
       } catch (err) {
         console.error("File upload failed:", err);
-        alert("File upload failed! Please try again.");
+        setToastMessage("❌ File upload failed. Try again.");
+        setTimeout(() => setToastMessage(""), 3000);
         return;
       }
     }
 
-    // Step 2️⃣ Submit task content + uploaded fileId
+    // 2️⃣ Submit task
     await dispatch(
       submitTask({
         task_id: currentTask._id,
@@ -90,15 +92,27 @@ export default function StudentDashboard() {
       })
     );
 
+    setToastMessage("✅ Task submitted successfully!");
     closeModal();
+    setTimeout(() => setToastMessage(""), 3000);
     setTimeout(() => dispatch(clearMessage()), 2500);
-    dispatch(fetchStudentProjects()); // refresh projects
+    dispatch(fetchStudentProjects());
   };
 
   if (!user) return <div className="text-center mt-5">Loading...</div>;
 
   return (
     <div className="container mt-5">
+      {/* ===== Toast Message ===== */}
+      {toastMessage && (
+        <div
+          className="alert alert-info text-center position-fixed top-0 start-50 translate-middle-x mt-3 shadow"
+          style={{ zIndex: 1050, width: "320px" }}
+        >
+          {toastMessage}
+        </div>
+      )}
+
       {/* ===== Header ===== */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h3>🎓 Student Dashboard</h3>
@@ -126,7 +140,19 @@ export default function StudentDashboard() {
           {projects?.length > 0 ? (
             projects.map((p) => (
               <tr key={p._id}>
-                <td>{p.title}</td>
+                <td>
+                  {p.title}{" "}
+                  {p.isEdited && (
+                    <span className="badge bg-warning text-dark ms-2">
+                      Edited
+                    </span>
+                  )}
+                  {p.isDeleted && (
+                    <span className="badge bg-danger text-light ms-2">
+                      Deleted
+                    </span>
+                  )}
+                </td>
                 <td>{p.description}</td>
                 <td>
                   {p.tasks?.length ? (
@@ -135,9 +161,24 @@ export default function StudentDashboard() {
                         const submission = t.submissions?.find(
                           (s) => s.student_id === user.id
                         );
+                        const isDisabled = t.isDeleted || p.isDeleted;
+
                         return (
                           <li key={t._id} className="mb-2">
-                            <b>{t.title}</b> — {t.description}{" "}
+                            <b>
+                              {t.title}{" "}
+                              {t.isEdited && (
+                                <span className="badge bg-warning text-dark ms-2">
+                                  Edited
+                                </span>
+                              )}
+                              {t.isDeleted && (
+                                <span className="badge bg-danger text-light ms-2">
+                                  Deleted
+                                </span>
+                              )}
+                            </b>{" "}
+                            — {t.description}{" "}
                             {submission ? (
                               <>
                                 <span className="badge bg-success ms-2">
@@ -163,6 +204,7 @@ export default function StudentDashboard() {
                               <button
                                 className="btn btn-sm btn-primary ms-2"
                                 onClick={() => openModal(t)}
+                                disabled={isDisabled}
                               >
                                 Submit Task
                               </button>
