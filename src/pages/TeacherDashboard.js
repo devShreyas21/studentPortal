@@ -429,12 +429,27 @@ export default function TeacherDashboard() {
                       className="border rounded p-3 mb-3 bg-light"
                     >
                       <p>
-                        {/* <b>Student ID:</b> {s.student_id} */}
                         <b>Student:</b> {getStudentName(s.student_id)}
                       </p>
                       <p>
                         <b>Submission:</b> {s.content}
                       </p>
+
+                      {/* 🆕 File download section */}
+                      {s.fileId && (
+                        <p>
+                          <b>Attached File:</b>{" "}
+                          <a
+                            href={`${process.env.REACT_APP_API_BASE_URL}upload/${s.fileId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-decoration-none"
+                          >
+                            📎 View File
+                          </a>
+                        </p>
+                      )}
+
                       <div className="d-flex align-items-center">
                         <input
                           type="text"
@@ -455,6 +470,7 @@ export default function TeacherDashboard() {
                           Submit Grade
                         </button>
                       </div>
+
                     </div>
                   ))
                 ) : (
